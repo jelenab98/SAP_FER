@@ -1,0 +1,45 @@
+---
+title: "04-zadatak6"
+author: "Vjeran Grozdanic"
+date: "5/2/2020"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(BSDA)
+```
+# Razlike u rastu BDP-a i BDP per capita
+
+TODO: Provjera testova za USA i Australiju -- p-vrijednost je premalena???
+
+# USA razlike
+```{r}
+sap.data %>% filter(LOCATION=="USA") -> usa.sap.bdp.test
+
+SIGN.test(usa.sap.bdp.test$GDP_GROWTH, usa.sap.bdp.test$GDP_PER_CAPITA_GROWTH)
+wilcox.test(usa.sap.bdp.test$GDP_GROWTH, usa.sap.bdp.test$GDP_PER_CAPITA_GROWTH, paired = T)
+# p-value je 3.638e-12 --> odbacujemo
+```
+# AUS razlike
+```{r}
+sap.data %>% filter(LOCATION=="AUS") -> aus.sap.bdp.test
+wilcox.test(aus.sap.bdp.test$GDP_GROWTH, aus.sap.bdp.test$GDP_PER_CAPITA_GROWTH, paired = T)
+SIGN.test(aus.sap.bdp.test$GDP_GROWTH, aus.sap.bdp.test$GDP_PER_CAPITA_GROWTH)
+# p-value je 3.638e-12 -> odbacujemo
+```
+# KOR razlike
+```{r}
+sap.data %>% filter(LOCATION=="KOR") -> kor.sap.bdp.test
+t.test(kor.sap.bdp.test$GDP_GROWTH, kor.sap.bdp.test$GDP_PER_CAPITA_GROWTH, paired = T)
+# p-value je 0.422 --> ne odbacujemo
+```
+
+# NOR razlike
+```{r}
+sap.data %>% filter(LOCATION=="NOR") -> nor.sap.bdp.test
+t.test(nor.sap.bdp.test$GDP_GROWTH, nor.sap.bdp.test$GDP_PER_CAPITA_GROWTH, paired = T)
+# p-value je 0.579 --> ne odbacujemo
+```
+

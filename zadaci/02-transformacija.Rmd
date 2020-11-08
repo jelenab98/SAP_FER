@@ -1,0 +1,43 @@
+---
+title: "02-transformacija"
+author: "Vjeran Grozdanic"
+date: "4/14/2020"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+```
+# Transformacija podatak
+
+**Prije pokretanja transformacija u ovom dokumentu, potrebno je prvo ucitati podatke pomocu "01.ucitavanje.Rmd"**
+
+```{r}
+# Sve drzave u podacima vec imaju iste godine, 1979 - 2018
+export.data %>% filter(LOCATION=="AUS" | LOCATION=="NOR" | LOCATION=="USA" | LOCATION=="KOR") %>% select(LOCATION, TIME, Value) %>% rename(EXPORT = Value) -> export.data.filter
+import.data %>% filter(LOCATION=="AUS" | LOCATION=="NOR" | LOCATION=="USA" | LOCATION=="KOR") %>% select(LOCATION, TIME, Value) %>% rename(IMPORT = Value)-> import.data.filter
+gdp.data %>% filter(LOCATION=="AUS" | LOCATION=="NOR" | LOCATION=="USA" | LOCATION=="KOR") %>% select(LOCATION, TIME, Value) %>% rename(GDP = Value) -> gdp.data.filter
+gdp.per.capita.data %>% filter(LOCATION=="AUS" | LOCATION=="NOR" | LOCATION=="USA" | LOCATION=="KOR") %>% select(LOCATION, TIME, Value) %>% rename(GDP_PER_CAPITA = Value) -> gdp.per.capita.data.filter
+
+# spajanje svih podataka u jednu tablicu
+
+sap.data <- inner_join(export.data.filter, import.data.filter, by = c("LOCATION" = "LOCATION", "TIME" = "TIME"))
+sap.data <- inner_join(sap.data, gdp.data.filter, by = c("LOCATION" = "LOCATION", "TIME" = "TIME"))
+sap.data <- inner_join(sap.data, gdp.per.capita.data.filter, by = c("LOCATION" = "LOCATION", "TIME" = "TIME"))
+
+rm(list=setdiff(ls(), "sap.data")) # cisti sve varijable osim sap.data koja ce biti koristena za daljnju obradu podataka
+
+# izracun rasta
+
+sap.data <- mutate(sap.data, EXPORT_GROWTH = ifelse(LOCATION == lag(LOCATION), (EXPORT - lag(EXPORT)) / lag(EXPORT), NA))
+sap.data <- mutate(sap.data, IMPORT_GROWTH = ifelse(LOCATION == lag(LOCATION), (IMPORT - lag(IMPORT)) / lag(IMPORT), NA))
+sap.data <- mutate(sap.data, GDP_GROWTH = ifelse(LOCATION == lag(LOCATION), (GDP - lag(GDP)) / lag(GDP), NA))
+sap.data <- mutate(sap.data, GDP_PER_CAPITA_GROWTH = ifelse(LOCATION == lag(LOCATION), (GDP_PER_CAPITA - lag(GDP_PER_CAPITA)) / lag(GDP_PER_CAPITA), NA))
+
+# izracun prosjeka i standardne devijacije
+
+sap.data.summary <- sap.data %>% group_by(LOCATION) %>% summarise(EXPORT_MEAN=mean(EXPORT, na.rm=T), EXPORT_SD=sd(EXPORT, na.rm=T), EXPORT_GROWTH_MEAN=mean(EXPORT_GROWTH, na.rm=T), EXPORT_GROWTH_SD=sd(EXPORT_GROWTH, na.rm=T), IMPORT_MEAN=mean(IMPORT, na.rm=T), IMPORT_SD=sd(IMPORT, na.rm=T), IMPORT_GROWTH_MEAN=mean(IMPORT_GROWTH, na.rm=T), IMPORT_GROWTH_SD=sd(IMPORT_GROWTH, na.rm=T), GDP_MEAN=mean(GDP, na.rm=T), GDP_SD=sd(GDP, na.rm=T), GDP_GROWTH_MEAN=mean(GDP_GROWTH, na.rm=T), GDP_GROWTH_SD=sd(GDP_GROWTH, na.rm=T), GDP_PER_CAPITA_MEAN=mean(GDP_PER_CAPITA, na.rm=T), GDP_PER_CAPITA_SD=sd(GDP_PER_CAPITA, na.rm=T), GDP_PER_CAPITA_GROWTH_MEAN=mean(GDP_PER_CAPITA_GROWTH, na.rm=T), GDP_PER_CAPITA_GROWTH_SD=sd(GDP_PER_CAPITA_GROWTH, na.rm=T))
+```
+
+

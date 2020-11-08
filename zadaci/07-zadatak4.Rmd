@@ -1,0 +1,38 @@
+---
+title: "07-zadatak4"
+author: "Jelena Bratulić"
+date: '02 05 2020 '
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+```
+
+Usporedba ovisnosti rasta uvoza i izvoza neke države.
+
+```{r podaci}
+aus_test_data = sap.data %>% filter(LOCATION=="AUS")
+kor_test_data = sap.data %>% filter(LOCATION=="KOR")
+nor_test_data = sap.data %>% filter(LOCATION=="NOR")
+usa_test_data = sap.data %>% filter(LOCATION=="USA")
+```
+Ispravljeni testovi -- sve varijable imaju normalnu distribuciju i zavisne su pa koristimo upareni t-test
+Testovi. 
+Nulta hipoteza jest da su stope rasta iste ili da je izvoz manji od uvoza.
+Alternativna hipoteza je da je stopa rasta izvoza veća od stope rasta uvoza. 
+Nivo značajnosti je 5%.
+Zaključak: Ne možemo sa značajnošću od 5% reći da je rast izvoza veći od rasta uvoza što je vidljivo i iz grafova. Iako ovo pokazuje kako je pojedina država uvelike ovisna o izvozu, u obzir se mora uzeti i veličina te jačina domaćeg gospodarstva.
+Ovo je isto gotovo i ispravljeno, provjereno je da varijable imaju normalnu razdiobu, istu varijancu i da su zavisne, dakle uparene.
+```{r testovi}
+t.test(aus_test_data$EXPORT_GROWTH, aus_test_data$IMPORT_GROWTH, alternative = 'greater', paired = T, var.equal = F)
+# t = -0.89125, p-value = 0.8108 --> ne odbacujemo
+t.test(kor_test_data$EXPORT_GROWTH, kor_test_data$IMPORT_GROWTH, alternative = 'greater', paired = T, var.equal = T)
+# t = 1.27050, p-value = 0.1058 --> ne odbacujemo
+t.test(nor_test_data$EXPORT_GROWTH, nor_test_data$IMPORT_GROWTH, alternative = 'greater', paired = T, var.equal = T)
+# t = -0.57161, p-value = 0.7145 --> ne odbacujemo
+t.test(usa_test_data$EXPORT_GROWTH, usa_test_data$IMPORT_GROWTH, alternative = 'greater', paired = T, var.equal = T)
+# t = -0.38863, p-value = 0.6501 --> ne odbacujemo
+
+```

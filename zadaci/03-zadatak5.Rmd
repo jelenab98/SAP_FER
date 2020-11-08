@@ -1,0 +1,52 @@
+---
+title: "03-zadatak5"
+author: "Vjeran Grozdanic"
+date: "5/2/2020"
+output: html_document
+---
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+```
+# Stršeće vrijednosti
+
+## SAD godišnji rast izvoza
+```{r}
+usa.rast <- sap.data %>% filter(LOCATION=="USA") %>% select(EXPORT_GROWTH, TIME)
+bp.usa.out = boxplot(usa.rast$EXPORT_GROWTH)$out
+usa.rast %>% filter(EXPORT_GROWTH %in% bp.usa.out) -> usa.export.outliers
+usa.export.outliers
+
+# vidi se pad 1982 -> ?
+# vidi se pad 2009 -> ekonomska kriza
+```
+
+
+## AUS godišnji rast izvoza
+```{r}
+aus.rast <- sap.data %>% filter(LOCATION=="AUS") %>% select(EXPORT_GROWTH, TIME)
+bp.aus.out = boxplot(aus.rast$EXPORT_GROWTH)$out
+aus.rast %>% filter(EXPORT_GROWTH %in% bp.aus.out) -> aus.export.outliers
+aus.export.outliers
+# nema outliersa
+```
+
+## KOR godišnji rast izvoza
+```{r}
+kor.rast <- sap.data %>% filter(LOCATION=="KOR") %>% select(EXPORT_GROWTH, TIME)
+bp.kor.out = boxplot(kor.rast$EXPORT_GROWTH)$out
+kor.rast %>% filter(EXPORT_GROWTH %in% bp.kor.out) -> kor.export.outliers
+kor.export.outliers
+# vidi se 1986 -> pocinje trgovati sa SAD-om http://countrystudies.us/south-korea/56.htm
+```
+
+## NOR godišnji rast izvoza
+```{r}
+nor.rast <- sap.data %>% filter(LOCATION=="NOR") %>% select(EXPORT_GROWTH, TIME)
+bp.nor.out = boxplot(nor.rast$EXPORT_GROWTH)$out
+nor.rast %>% filter(EXPORT_GROWTH %in% bp.nor.out) -> nor.export.outliers
+nor.export.outliers
+# nema outliersa
+```

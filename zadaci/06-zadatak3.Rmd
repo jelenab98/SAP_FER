@@ -1,0 +1,43 @@
+---
+title: "06-zadatak3"
+author: "Jelena Bratulić"
+date: '02 05 2020 '
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+```
+Usporedba rasta gospodarstva država. Ispitujemo je li rast približno isti za sve države. Potrebno je ispitati sve kombinacije.
+
+```{r podaci}
+aus_test_data = sap.data %>% filter(LOCATION=="AUS")
+kor_test_data = sap.data %>% filter(LOCATION=="KOR")
+nor_test_data = sap.data %>% filter(LOCATION=="NOR")
+usa_test_data = sap.data %>% filter(LOCATION=="USA")
+```
+
+Testovi. Koristimo ANOVA testiranje čime se automatski provjeravaju sve 4 varijable. Prije samog testiranja potrebno je provjeriti pretpostavke.
+Potrebno je još provjeriti ovaj test jer mi nije baš jasno to. Preko Bartletta smo dokazali da varijance nisu homogene pa nez kako ovo izvesti.
+
+```{r testovi_jednakosti}
+kruskal.test(GDP_GROWTH ~ LOCATION, data = sap.data)
+# df 3, p-value = 0.003354 --> odbacujemo H0, znači nisu jednake.
+```
+
+
+Testovi. Nulta hipoteza jest da su stope rasta iste ili da je stopa prve manja od druge, a alternativna hipoteza je da je stopa prve veća od druge.
+Dovoljno je prikazati samo dvije usporedbe i pozvati se na početne grafove gdje se vidi razlika.
+Radimo testove za one varijable koje zadovoljavaju pretpostavke t testa.
+Ovo bi sada trebalo biti sređeno jer su svi podaci iz normalne distribucije, nezavaisni, s istim varijanca pri značajnosti od 5%.
+
+```{r testovi_nejednakosti}
+t.test(kor_test_data$GDP_GROWTH, nor_test_data$GDP_GROWTH, alternative = 'greater', var.equal = T, paired=T)
+# t = 1.99780, p-value je 0.02468 --> odbacujemo
+t.test(kor_test_data$GDP_GROWTH, usa_test_data$GDP_GROWTH, alternative = 'greater', var.equal = F, paired=T)
+# t = 3.62830, p-value je 0.0003129 -->  odbacujemo
+t.test(nor_test_data$GDP_GROWTH, usa_test_data$GDP_GROWTH, alternative = 'greater', var.equal = F, paired=T)
+# t = 0.84283, p-value je 0.2016 -->  ne odbacujemo
+
+```

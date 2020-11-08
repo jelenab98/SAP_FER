@@ -1,0 +1,56 @@
+---
+title: "05-zadatak1"
+author: "Ivo Karamatić"
+date: "5/2/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+```
+
+U ekonomiji, snaga gospodarstva neke države mjeri se uglavnom BDP-om (Bruto domaćim proizvodom). To je ekonomski faktor koji se najčešće računa prema sljedećoj formuli: $Y = C + I + G + X$. U upravo navedenoj formuli Y označava BDP, C označava osobnu potrošnju, I označava investicije, G označava državnu potrošnju, a X označava neto izvoz. Neto izvoz je definiran sljedećom formulom: $X = ukupanIzvoz - ukupanUvoz$. Dakle, možemo zaključiti da matematička veza između uvoza neke države, izvoza neke države i njenog gospodarstva svakako postoji.
+
+S obzirom da na BDP, osim uvoza i izvoza, utječu i potrošačke navike društva, logično je za očekivati da će ukupni BDP kod država s većim brojem stanovnika biti uglavnom veći te da bismo, kako bismo imali dobru predodžbu gospodarske snage neke države u odnosu na njeno stanovništvo, trebali uspoređivati BDP po glavi stanovnika. Pogledajmo malu usporedbu između SAD-a, Južne Koreje, Norveške i Australije. Na prvom grafu imamo vrijednosti BDP-a u periodu od 1979. do 2018. godine. Gledajući samo taj graf, moglo bi se zaključiti da je osoba u SAD-u nemjerljivo bogatija i ekonomski prosperitetnija u odnosu na ljude u preostalim zemljama. Međutim, pogledamo li drugi graf koji prikazuje BDP po glavi stanovnika u istom vremenskom periodu, vidimo da su ekonomije ostalih zemalja ne samo usporedive, već u nekoliko navrata i bolje od ekonomije SAD-a.
+
+```{r}
+ggplot(sap.data, aes(TIME, colour = LOCATION)) + geom_point(aes(y = GDP)) + geom_line(aes(y = GDP)) + labs(x = "Godina", y = "BDP ($)", colour = "Država") + theme_classic()
+
+ggplot(sap.data, aes(TIME, colour = LOCATION)) + geom_point(aes(y = GDP_PER_CAPITA)) + geom_line(aes(y = GDP_PER_CAPITA)) + labs(x = "Godina", y = "BDP po glavi stanovnika ($)", colour = "Država") + theme_classic()
+```
+
+Godišnji rast BDP-a mjerimo prema sljedećoj formuli: $rastBDP = \frac{BDP_{N} - BDP_{N-1}}{BDP_{N-1}}$. Varijabla $BDP_{N}$ predstavlja vrijednost BDP-a u tekućoj godini, a varijabla $BDP_{N-1}$ predstavlja vrijednost BDP-a u prethodnoj godini. Dijeljenje s vrijednošću iz prethodne godine nužno je zbog inflacije. Kada bismo riječima trebali objasniti značenje ove varijable, okvirna definicija mogla bi glasiti: Godišnji rast BDP-a je razlika između BDP-a u tekućoj godini i BDP-a u prethodnoj godini prilagođena monetarnoj situaciji iz prethodne godine. Na sljedećem grafu pogledajmo kako se rast BDP-a u naše 4 države kretao kroz vrijeme.
+
+```{r}
+ggplot(sap.data, aes(TIME, colour = LOCATION)) + geom_point(aes(y = GDP_GROWTH)) + geom_line(aes(y = GDP_GROWTH)) + labs(x = "Godina", y = "Rast BDP-a", colour = "Država") + theme_classic()
+```
+
+Za kraj, pogledajmo još grafove za rast izvoza i neto izvoz. Vidimo da je SAD najnižu vrijednost neto izvoza doživio u drugoj polovici prvog desetljeća 20. stoljeća što je ujedno vrijeme koje je prethodilo posljednjoj velikoj ekonomskoj krizi.
+
+```{r}
+ggplot(sap.data, aes(TIME, colour = LOCATION)) + geom_point(aes(y = EXPORT_GROWTH)) + geom_line(aes(y = EXPORT_GROWTH)) + labs(x = "Godina", y = "Rast izvoza", colour = "Država") + theme_classic()
+
+ggplot(sap.data, aes(TIME, colour = LOCATION)) + geom_point(aes(y = EXPORT - IMPORT)) + geom_line(aes(y = EXPORT - IMPORT)) + labs(x = "Godina", y = "Neto izvoz ($)", colour = "Država") + theme_classic()
+```
+
+Ipak nije kraj, jos Čemo dodati neke stvari...
+```{r}
+ggplot(sap.data, aes(TIME, colour = LOCATION)) + geom_point(aes(y = EXPORT)) + geom_line(aes(y = EXPORT)) + labs(x = "Godina", y = "Izvoz", colour = "Država") + theme_classic()
+
+ggplot(sap.data, aes(TIME, colour = LOCATION)) + geom_point(aes(y =IMPORT)) + geom_line(aes(y = IMPORT)) + labs(x = "Godina", y = "Uvoz", colour = "Država") + theme_classic()
+```
+
+```{r}
+ggplot(sap.data[sap.data$LOCATION == "KOR",], aes(EXPORT + log(IMPORT), colour = LOCATION)) + geom_point(aes(y = GDP)) + geom_line(aes(y = GDP)) + labs(x = "Izvoz + log(Uvoz)", y = "GDP", colour = "Država") + theme_classic()
+
+ggplot(sap.data[sap.data$LOCATION == "AUS",], aes(EXPORT + IMPORT, colour = LOCATION)) + geom_point(aes(y = GDP)) + geom_line(aes(y = GDP)) + labs(x = "Uvoz + Izvoz", y = "GDP", colour = "Država") + theme_classic()
+
+ggplot(sap.data[sap.data$LOCATION == "USA",], aes(EXPORT + IMPORT, colour = LOCATION)) + geom_point(aes(y = GDP)) + geom_line(aes(y = GDP)) + labs(x = "Uvoz + Izvoz", y = "GDP", colour = "Država") + theme_classic()
+
+ggplot(sap.data[sap.data$LOCATION == "NOR",], aes(IMPORT, colour = LOCATION)) + geom_point(aes(y = GDP)) + geom_line(aes(y = GDP)) + labs(x = "Uvoz", y = "GDP", colour = "Država") + theme_classic()
+```
+
+

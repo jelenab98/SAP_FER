@@ -1,0 +1,480 @@
+---
+title: "Projekt iz kolegija Statistička analiza podataka"
+author: "KGB (Ivo Karamatić, Vjeran Grozdanić, Jelena Bratulić)"
+date: "20. svibnja 2020."
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+library(BSDA)
+library(cowplot)
+library(bootstrap)
+library(car)
+```
+*Uvod*
+----
+U sklopu projekta iz kolegija Statistička analiza podataka promatrat ćemo povezanost i utjecaj izvoza i uvoza na gospodarstvo pojedine države. Za sam rad i analize koristit ćemo podatke Organizacije za ekonomsku suradnju i razvoj (OECD) koji su javno dostupni na službenim stranicama organizacije. Skup podataka sastoji se od niza podataka o izvozu, uvozu, bruto domaćem proizvodu te bruto domaćem proizvodu po glavi stanovnika za razdoblje od 1979.godine do 2019.godine. Za daljnje analize promatrat ćemo detaljnije četiri države: Australiju, Koreju, Norvešku i Sjedinjene Američke Države.
+
+
+*Učitavanje i transformacija podataka*
+----
+Podaci se nalaze u zasebnim csv datotekama. Dodatno ćemo u analizama koristiti i izvedene varijable iz prethodno spomenutih podataka pa je potrebno izračunati vrijednosti rasta varijabli. Godišnji rast BDP-a mjerimo prema sljedećoj formuli: $rastBDP = \frac{BDP_{N} - BDP_{N-1}}{BDP_{N-1}}$. Varijabla $BDP_{N}$ predstavlja vrijednost BDP-a u tekućoj godini, a varijabla $BDP_{N-1}$ predstavlja vrijednost BDP-a u prethodnoj godini. Dijeljenje s vrijednošću iz prethodne godine nužno je zbog inflacije. Kada bismo riječima trebali objasniti značenje ove varijable, okvirna definicija mogla bi glasiti: Godišnji rast BDP-a je razlika između BDP-a u tekućoj godini i BDP-a u prethodnoj godini prilagođena monetarnoj situaciji iz prethodne godine. Analogno vrijedi i za rast izvoza, uvoza te BDP-a po glavi stanovnika.
+
+```{r}
+rm(list=ls()) # cisti sve lokalne varijable
+
+export.data <- read_csv("../data/Export_data.csv")
+import.data <- read_csv("../data/Import_data.csv")
+gdp.data <- read_csv("../data/GDP_data.csv")
+gdp.per.capita.data <- read_csv("../data/GDPpercapita_data.csv")
+```
+
+```{r}
+# sve drzave u podacima vec imaju iste godine, 1979 - 2018
+
+export.data %>% filter(LOCATION=="AUS" | LOCATION=="NOR" | LOCATION=="USA" | LOCATION=="KOR") %>% select(LOCATION, TIME, Value) %>% rename(EXPORT = Value) -> export.data.filter
+import.data %>% filter(LOCATION=="AUS" | LOCATION=="NOR" | LOCATION=="USA" | LOCATION=="KOR") %>% select(LOCATION, TIME, Value) %>% rename(IMPORT = Value)-> import.data.filter
+gdp.data %>% filter(LOCATION=="AUS" | LOCATION=="NOR" | LOCATION=="USA" | LOCATION=="KOR") %>% select(LOCATION, TIME, Value) %>% rename(GDP = Value) -> gdp.data.filter
+gdp.per.capita.data %>% filter(LOCATION=="AUS" | LOCATION=="NOR" | LOCATION=="USA" | LOCATION=="KOR") %>% select(LOCATION, TIME, Value) %>% rename(GDP_PER_CAPITA = Value) -> gdp.per.capita.data.filter
+
+# spajanje svih podataka u jednu tablicu
+
+sap.data <- inner_join(export.data.filter, import.data.filter, by = c("LOCATION" = "LOCATION", "TIME" = "TIME"))
+sap.data <- inner_join(sap.data, gdp.data.filter, by = c("LOCATION" = "LOCATION", "TIME" = "TIME"))
+sap.data <- inner_join(sap.data, gdp.per.capita.data.filter, by = c("LOCATION" = "LOCATION", "TIME" = "TIME"))
+
+rm(list=setdiff(ls(), "sap.data")) # cisti sve varijable osim sap.data koja ce biti koristena za daljnju obradu podataka
+
+# izracun rasta
+
+sap.data <- mutate(sap.data, EXPORT_GROWTH = ifelse(LOCATION == lag(LOCATION), (EXPORT - lag(EXPORT)) / lag(EXPORT), NA))
+sap.data <- mutate(sap.data, IMPORT_GROWTH = ifelse(LOCATION == lag(LOCATION), (IMPORT - lag(IMPORT)) / lag(IMPORT), NA))
+sap.data <- mutate(sap.data, GDP_GROWTH = ifelse(LOCATION == lag(LOCATION), (GDP - lag(GDP)) / lag(GDP), NA))
+sap.data <- mutate(sap.data, GDP_PER_CAPITA_GROWTH = ifelse(LOCATION == lag(LOCATION), (GDP_PER_CAPITA - lag(GDP_PER_CAPITA)) / lag(GDP_PER_CAPITA), NA))
+
+# izracun prosjeka i standardne devijacije
+
+sap.data.summary <- sap.data %>% group_by(LOCATION) %>% summarise(EXPORT_MEAN=mean(EXPORT, na.rm=T), EXPORT_SD=sd(EXPORT, na.rm=T), EXPORT_GROWTH_MEAN=mean(EXPORT_GROWTH, na.rm=T), EXPORT_GROWTH_SD=sd(EXPORT_GROWTH, na.rm=T), IMPORT_MEAN=mean(IMPORT, na.rm=T), IMPORT_SD=sd(IMPORT, na.rm=T), IMPORT_GROWTH_MEAN=mean(IMPORT_GROWTH, na.rm=T), IMPORT_GROWTH_SD=sd(IMPORT_GROWTH, na.rm=T), GDP_MEAN=mean(GDP, na.rm=T), GDP_SD=sd(GDP, na.rm=T), GDP_GROWTH_MEAN=mean(GDP_GROWTH, na.rm=T), GDP_GROWTH_SD=sd(GDP_GROWTH, na.rm=T), GDP_PER_CAPITA_MEAN=mean(GDP_PER_CAPITA, na.rm=T), GDP_PER_CAPITA_SD=sd(GDP_PER_CAPITA, na.rm=T), GDP_PER_CAPITA_GROWTH_MEAN=mean(GDP_PER_CAPITA_GROWTH, na.rm=T), GDP_PER_CAPITA_GROWTH_SD=sd(GDP_PER_CAPITA_GROWTH, na.rm=T))
+
+# izracun dodatnih varijabli za testiranja
+
+aus_test_data = sap.data %>% filter(LOCATION=="AUS")
+kor_test_data = sap.data %>% filter(LOCATION=="KOR")
+nor_test_data = sap.data %>% filter(LOCATION=="NOR")
+usa_test_data = sap.data %>% filter(LOCATION=="USA")
+
+e = rep("E", 39)
+i = rep("I", 39)
+f = rep("F", 39)
+s = rep("S", 39)
+
+aus_ei_test = data.frame(na.omit(aus_test_data$EXPORT_GROWTH), e)
+ii = data.frame(na.omit(aus_test_data$IMPORT_GROWTH), i)
+names(ii) = names(aus_ei_test)
+aus_ei_test = rbind(aus_ei_test, ii)
+
+kor_ei_test = data.frame(na.omit(kor_test_data$EXPORT_GROWTH), e)
+ii = data.frame(na.omit(kor_test_data$IMPORT_GROWTH), i)
+names(ii) = names(kor_ei_test)
+kor_ei_test = rbind(kor_ei_test, ii)
+
+nor_ei_test = data.frame(na.omit(nor_test_data$EXPORT_GROWTH), e)
+ii = data.frame(na.omit(nor_test_data$IMPORT_GROWTH), i)
+names(ii) = names(nor_ei_test)
+nor_ei_test = rbind(nor_ei_test, ii)
+
+usa_ei_test = data.frame(na.omit(usa_test_data$EXPORT_GROWTH), e)
+ii = data.frame(na.omit(usa_test_data$IMPORT_GROWTH), i)
+names(ii) = names(usa_ei_test)
+usa_ei_test = rbind(usa_ei_test, ii)
+
+aus_gdp_test = data.frame(na.omit(aus_test_data$GDP_GROWTH), e)
+ii = data.frame(na.omit(aus_test_data$GDP_PER_CAPITA_GROWTH), i)
+names(ii) = names(aus_gdp_test)
+aus_gdp_test = rbind(aus_gdp_test, ii)
+
+kor_gdp_test = data.frame(na.omit(kor_test_data$GDP_GROWTH), e)
+ii = data.frame(na.omit(kor_test_data$GDP_PER_CAPITA_GROWTH), i)
+names(ii) = names(kor_gdp_test)
+kor_gdp_test = rbind(kor_gdp_test, ii)
+
+nor_gdp_test = data.frame(na.omit(nor_test_data$GDP_GROWTH), e)
+ii = data.frame(na.omit(nor_test_data$GDP_PER_CAPITA_GROWTH), i)
+names(ii) = names(nor_gdp_test)
+nor_gdp_test = rbind(nor_gdp_test, ii)
+
+usa_gdp_test = data.frame(na.omit(usa_test_data$GDP_GROWTH), e)
+ii = data.frame(na.omit(usa_test_data$GDP_PER_CAPITA_GROWTH), i)
+names(ii) = names(usa_gdp_test)
+usa_gdp_test = rbind(usa_gdp_test, ii)
+
+kor_nor_test = data.frame(na.omit(kor_test_data$GDP_GROWTH), f)
+ii = data.frame(na.omit(nor_test_data$GDP_GROWTH), s)
+names(ii) = names(kor_nor_test)
+kor_nor_test = rbind(kor_nor_test, ii)
+
+kor_usa_test = data.frame(na.omit(kor_test_data$GDP_GROWTH), f)
+ii = data.frame(na.omit(usa_test_data$GDP_GROWTH), s)
+names(ii) = names(kor_usa_test)
+kor_usa_test = rbind(kor_usa_test, ii)
+
+nor_usa_test = data.frame(na.omit(nor_test_data$GDP_GROWTH), f)
+ii = data.frame(na.omit(usa_test_data$GDP_GROWTH), s)
+names(ii) = names(nor_usa_test)
+nor_usa_test = rbind(nor_usa_test, ii)
+
+gdp_g_all_states = data.frame(na.omit(aus_test_data$GDP_GROWTH), e)
+ii = data.frame(na.omit(kor_test_data$GDP_GROWTH), i)
+names(ii) = names(gdp_g_all_states)
+gdp_g_all_states = rbind(gdp_g_all_states, ii)
+ii = data.frame(na.omit(nor_test_data$GDP_GROWTH), f)
+names(ii) = names(gdp_g_all_states)
+gdp_g_all_states = rbind(gdp_g_all_states, ii)
+ii = data.frame(na.omit(usa_test_data$GDP_GROWTH), s)
+names(ii) = names(gdp_g_all_states)
+gdp_g_all_states = rbind(gdp_g_all_states, ii)
+
+
+colnames(aus_ei_test) = c("NUMBERS", "MARKER")
+colnames(kor_ei_test) = c("NUMBERS", "MARKER")
+colnames(nor_ei_test) = c("NUMBERS", "MARKER")
+colnames(usa_ei_test) = c("NUMBERS", "MARKER")
+colnames(kor_nor_test) = c("NUMBERS", "MARKER")
+colnames(kor_usa_test) = c("NUMBERS", "MARKER")
+colnames(nor_usa_test) = c("NUMBERS", "MARKER")
+colnames(gdp_g_all_states) = c("NUMBERS", "MARKER")
+
+e = rep("E", 40)
+i = rep("I", 40)
+f = rep("F", 40)
+s = rep("S", 40)
+
+aus2_ei_test = data.frame(na.omit(aus_test_data$EXPORT), e)
+ii = data.frame(na.omit(aus_test_data$IMPORT), i)
+names(ii) = names(aus2_ei_test)
+aus2_ei_test = rbind(aus2_ei_test, ii)
+
+kor2_ei_test = data.frame(na.omit(kor_test_data$EXPORT), e)
+ii = data.frame(na.omit(kor_test_data$IMPORT), i)
+names(ii) = names(kor2_ei_test)
+kor2_ei_test = rbind(kor2_ei_test, ii)
+
+nor2_ei_test = data.frame(na.omit(nor_test_data$EXPORT), e)
+ii = data.frame(na.omit(nor_test_data$IMPORT), i)
+names(ii) = names(nor2_ei_test)
+nor2_ei_test = rbind(nor2_ei_test, ii)
+
+usa2_ei_test = data.frame(na.omit(usa_test_data$EXPORT), e)
+ii = data.frame(na.omit(usa_test_data$IMPORT), i)
+names(ii) = names(usa2_ei_test)
+usa2_ei_test = rbind(usa2_ei_test, ii)
+
+colnames(aus2_ei_test) = c("NUMBERS", "MARKER")
+colnames(kor2_ei_test) = c("NUMBERS", "MARKER")
+colnames(nor2_ei_test) = c("NUMBERS", "MARKER")
+colnames(usa2_ei_test) = c("NUMBERS", "MARKER")
+
+colnames(aus_gdp_test) = c("NUMBERS", "MARKER")
+colnames(kor_gdp_test) = c("NUMBERS", "MARKER")
+colnames(nor_gdp_test) = c("NUMBERS", "MARKER")
+colnames(usa_gdp_test) = c("NUMBERS", "MARKER")
+```
+
+*Pogled s ekonomskog aspekta*
+----
+
+U ekonomiji, snaga gospodarstva neke države mjeri se uglavnom BDP-om (Bruto domaćim proizvodom). To je ekonomski faktor koji se najčešće računa prema sljedećoj formuli: $Y = C + I + G + X$. U upravo navedenoj formuli Y označava BDP, C označava osobnu potrošnju, I označava investicije, G označava državnu potrošnju, a X označava neto izvoz.
+Neto izvoz je definiran sljedećom formulom: $X = ukupanIzvoz - ukupanUvoz$. Dakle, možemo zaključiti da matematička veza između uvoza neke države, izvoza neke države i njenog gospodarstva svakako postoji.
+
+S obzirom da na BDP, osim uvoza i izvoza, utječu i potrošačke navike društva, logično je za očekivati da će ukupni BDP kod država s većim brojem stanovnika biti uglavnom veći te da bismo, kako bismo imali dobru predodžbu gospodarske snage neke države u odnosu na njeno stanovništvo, trebali uspoređivati BDP po glavi stanovnika. Pogledajmo malu usporedbu između SAD-a, Južne Koreje, Norveške i Australije. Na prvom grafu imamo vrijednosti BDP-a u periodu od 1979. do 2018. godine. Gledajući samo taj graf, moglo bi se zaključiti da je osoba u SAD-u nemjerljivo bogatija i ekonomski prosperitetnija u odnosu na ljude u preostalim zemljama. Međutim, pogledamo li drugi graf koji prikazuje BDP po glavi stanovnika u istom vremenskom periodu, vidimo da su ekonomije ostalih zemalja ne samo usporedive, već u nekoliko navrata i bolje od ekonomije SAD-a.
+
+```{r}
+p1 = ggplot(sap.data, aes(TIME, colour = LOCATION)) + geom_point(aes(y = GDP)) + geom_line(aes(y = GDP)) + labs(x = "Godina", y = "BDP ($)", colour = "Država") + theme_minimal()
+
+p2 = ggplot(sap.data, aes(TIME, colour = LOCATION)) + geom_point(aes(y = GDP_PER_CAPITA)) + geom_line(aes(y = GDP_PER_CAPITA)) + labs(x = "Godina", y = "BDP po glavi stanovnika ($)", colour = "Država") + theme_minimal()
+plot_grid(p1, p2, ncol= 1)
+```
+
+Nadalje, možemo vizualizirati i kretanje gospodarskog rasta kroz navedne godine. Definiciju gospodarskog rasta dali smo u prethodnom odijelku, no spomenimo samo kako je gospodarski rast jedan od najvažnih pokazatelja stabilnosti i jačine gospodarstva neke države. Na sljedećem grafu pogledajmo kako se rast BDP-a u naše 4 države kretao kroz vrijeme.
+
+```{r}
+ggplot(na.omit(sap.data), aes(TIME, colour = LOCATION)) + geom_point(aes(y = GDP_GROWTH)) + geom_line(aes(y = GDP_GROWTH)) + labs(x = "Godina", y = "Rast BDP-a", colour = "Država") + theme_minimal()
+
+```
+
+Za kraj, pogledajmo još grafove za uvoz, izvoz, rast izvoza i neto izvoz. Vidimo da je SAD najnižu vrijednost neto izvoza doživio u drugoj polovici prvog desetljeća 20. stoljeća što je ujedno vrijeme koje je prethodilo posljednjoj velikoj ekonomskoj krizi. Također, vidimo osjetan pad uvoza i izvoza SAD-a 2009. godine u vrijeme upravo navedene krize.
+
+```{r}
+ggplot(na.omit(sap.data), aes(TIME, colour = LOCATION)) + geom_point(aes(y = EXPORT)) + geom_line(aes(y = EXPORT)) + labs(x = "Godina", y = "Izvoz ($)", colour = "Država") + theme_minimal()
+
+ggplot(na.omit(sap.data), aes(TIME, colour = LOCATION)) + geom_point(aes(y =IMPORT)) + geom_line(aes(y = IMPORT)) + labs(x = "Godina", y = "Uvoz ($)", colour = "Država") + theme_minimal()
+
+ggplot(na.omit(sap.data), aes(TIME, colour = LOCATION)) + geom_point(aes(y = EXPORT_GROWTH)) + geom_line(aes(y = EXPORT_GROWTH)) + labs(x = "Godina", y = "Rast izvoza", colour = "Država") + theme_minimal()
+
+ggplot(na.omit(sap.data), aes(TIME, colour = LOCATION)) + geom_point(aes(y = EXPORT - IMPORT)) + geom_line(aes(y = EXPORT - IMPORT)) + labs(x = "Godina", y = "Neto izvoz ($)", colour = "Država") + theme_minimal()
+
+```
+
+*Stršeće vrijednosti*
+----
+Kao što smo već spomenuli, rast BDP-a, izvoza i uvoza dobri su pokazatelji stabilnosti države i jačine njezinog gospodarstva. To je vidljivo i analiziranjem stršećih vrijednosti pomoću Box-plot grafa. Neka vrijednost je stršeća ukoliko se od središnje vrijednosti razlikuje za više od 3 $\sigma$.
+
+```{r}
+boxplot(nor_test_data$EXPORT_GROWTH, aus_test_data$EXPORT_GROWTH, usa_test_data$EXPORT_GROWTH, kor_test_data$EXPORT_GROWTH,
+main = "Box-plot rasta izvoza",
+at = c(1,2,3,4),
+names = c("NOR", "AUS", "USA", "KOR"),
+las = 2,
+col = c("hot pink","magenta", "violet", "purple"),
+border = "black", 
+xlab = "Države", 
+ylab = 'Vrijednost rasta izvoza')
+```
+
+U ovom slučaju, strešeće vrijednosti nam ukazuju na nepravilnosti u gospodarstvu neke države. Kod Južne Koreje i SAD-a su vidljive stršeće vrijednosti koje se mogu objasniti sljedećim događajima. Južna Koreja je 1986. godine započela trgovati sa SAD-om što je u državi povećalo izvoz, a samim time možemo reći da se dogodio i veći pritok novaca nego prije. Nadalje, SAD je imala dva pada, odnosno 1982. godine te 2009.godine kada je cijeli svijet zahvatila ekonomska kriza, što se i vidljivo osjetilo u gospodarstvu SAD-a.
+
+*Grafičke provjere podataka*
+----
+Kako bismo mogli u daljnjem radu detaljnije analizirati podatke te testirati određene hipoteze, potrebno je provjeriti imaju li svi podaci normalnu razdiobu kako bismo znali trebali li koristiti parametarske ili neparametarske testove. 
+Iako prema graničnom centralnom teoremu, za uzorak veći od 30, distribucija nije bitna jer se može aproksimirati normalnom, želimo biti konzistentni i provjeriti distribuciju.
+Provjeru normalnosti, odnosno normalne distribucije neke populacije možemo provjeriti jednostavnim grafičkim prikazom. 
+U nastavku su prikazani izabrani grafovi distribucija za rast BDP-a, rast BDP-a po glavi stanovništva, rast izvoza te rast uvoza.
+
+```{r }
+p1 =ggdensity(na.omit(aus_test_data$GDP_GROWTH), main = "Density graph for Australia", xlab = "GDP_GROWTH", fill = 'violet')
+p2 = ggdensity(na.omit(kor_test_data$IMPORT_GROWTH), main = "Density graph for Korea", xlab = "IMPORT_GROWTH", fill = 'hot pink')
+p3 = ggdensity(na.omit(nor_test_data$GDP_PER_CAPITA_GROWTH), main = "Density graph for Norway", xlab = "GDP_PER_CAPITA_GROWTH", fill = 'magenta')
+p4 = ggdensity(na.omit(usa_test_data$GDP_GROWTH), main = "Density graph for USA", xlab = "GDP_GROWTH", fill = 'purple')
+plot_grid(p1, p2, p3, p4)
+```
+
+Iz samih grafičkih prikaza distribucije populacije ne možemo s velikom sigurnošću odrediti ima li neka populacija normalnu razdiobu ili ne. Iako svi grafovi podsjećaju na normalnu distribuciju, većina njih ima dodatne teške repove koji remete distribuciju. Kako bismo s većom sigurnošću mogli odrediti distribuciju, koristit ćemo QQ grafove te dodatno i Shapiro test.
+
+```{r }
+p1 =ggqqplot(na.omit(aus_test_data$GDP_GROWTH), main = "QQ plot za Australiju", xlab = "GDP_GROWTH")
+p2 = ggqqplot(na.omit(kor_test_data$IMPORT_GROWTH), main = "QQ plot za Koreju", xlab = "IMPORT_GROWTH")
+p3 = ggqqplot(na.omit(nor_test_data$GDP_PER_CAPITA_GROWTH), main = "QQ plot za Norvešku", xlab = "GDP_PER_CAPITA_GROWTH")
+p4 = ggqqplot(na.omit(usa_test_data$GDP_GROWTH), main = "QQ plot za SAD", xlab = "GDP_GROWTH")
+plot_grid(p1, p2, p3, p4)
+```
+
+Shapiro testom možemo uz postavljenu razinu značajnosti od 5% biti sigurni ima li neka populacija normalnu razdiobu ili ne. Nulta hipoteza kod Shapiro testova je da uzorak ima normalnu distribuciju, dok je alternativna H1 hipoteza kako ju nema. Hipotezu H0 možemo odbaciti ukoliko je p-vrijednost testa manja od razine značajnosti, dakle manja od 5%.
+
+```{r Odabrani Shapiro testovi}
+shapiro.test(aus_test_data$GDP_GROWTH)
+shapiro.test(kor_test_data$IMPORT_GROWTH) # --> normalna
+shapiro.test(nor_test_data$GDP_PER_CAPITA_GROWTH) # --> normalna
+shapiro.test(usa_test_data$GDP_GROWTH) # --> normalna
+```
+
+Provedeni testovi te grafički prikazi pokazuju nam da nemaju svi uzorci  normalnu distribuciju. Zbog toga ćemo za testiranje pojedinih hipoteza morati koristiti alternativne neparametarske testove. Osim prikazanih Shapiro testova, odbacivanje nulte hipoteze dobiveno je još i za rast BDP-a per capita u Australiji te SAD-u.
+
+*Testovi*
+----
+Kako bismo ispitali pojedine hipoteze koje su se i prirodno nametnule promatrajući grafove prikazane na početku rada, koristimo različite testove. Podaci koji su vezani za istu državu su zavisni jer se promatraju kroz isto vremensko razdoblje za istu državu.
+
+**Testovi homogenosti varijanci**
+
+Kako bismo mogli kasnije korisiti određenu vrstu testova, kao i linearnu regresiju, moramo prethodno odrediti odnose varijanci pojedinih populacija. Varijance uzoraka su nam nepoznate, ne svejedno možemo odrediti jesu li one značajno iste. To se može postići F testom čija je nulta hipoteza da su varijance populacije homogene, odnosno iste, a alternativna hipoteza je da su one različite. Nulta hipoteza se odbacuje ukoliko je p-vrijednost testa manja od razine značajnosti.
+
+```{r F testovi}
+# usporedba varijanci rasta uvoza i izvoza za jednu državu, ako je p-vrijednost manja od 0.05 onda nisu iste
+var.test(NUMBERS ~ MARKER, data=aus_ei_test) # nisu iste
+var.test(NUMBERS ~ MARKER, data=kor_ei_test) # iste su
+var.test(NUMBERS ~ MARKER, data=nor_ei_test) # iste su
+var.test(NUMBERS ~ MARKER, data=usa_ei_test) # iste su
+
+#usporedba varijanci rasta bdpa za dvije države, ako je p-vrijednost manja od 0.05 onda nisu iste
+var.test(NUMBERS ~ MARKER, data=kor_nor_test) # iste su
+var.test(NUMBERS ~ MARKER, data=kor_usa_test) # nisu iste
+var.test(NUMBERS ~ MARKER, data=nor_usa_test) # nisu iste
+
+#usporedba varijanci uvoza i izvoza za jednu državu, ako je p-vrijednost manja od 0.05 onda nisu iste
+var.test(NUMBERS ~ MARKER, data=aus2_ei_test) # nisu iste
+var.test(NUMBERS ~ MARKER, data=kor2_ei_test) # iste su
+var.test(NUMBERS ~ MARKER, data=nor2_ei_test) # iste su
+var.test(NUMBERS ~ MARKER, data=usa2_ei_test) # iste su
+
+```
+
+Ukoliko testiramo više varijanci odjednom, moramo koristiti testove koji podržavaju viševarijabilno istodobno testiranje. Ukoliko uzorci koje tetsiramo imaju normalnu razdiobu možemo koristiti Bartlettov test. Nulta hipoteza je kako su sve srednje vrijednosti iste, dok je alternativna hipoteza kako nisu iste. Ukoliko je p-vrijednost manja od razine značajnosti od 5%, nulta hipoteza se odbacuje.
+
+Međutim, naši uzorci nemaju svi normalnu razdiobu pa koristimo Leveneov test. Nulta hipoteza govori kako su sve varijance homogene, dok alternativna hipoteza govori da nisu. Ukoliko je p-vrijednost testa manja od razine značajnosti testa od 5%, nulta hipoteza se odbacuje što znači da nije zadovoljena homogenost varijanci.
+
+```{r Levene test}
+leveneTest(NUMBERS ~ MARKER, data=gdp_g_all_states)
+```
+
+**Kruskalov test**
+
+Za početak, ispitujemo je li rast gospodarstva značajno jednak za sve države. Koristit ćemo Kruskalov test koji je zapravo neparametarska alternativa za ANOVA testiranje. Budući da smo ranije pokazali kako nemaju sve populacije normalnu razdiobu te homogenost varijanci, ne možemo u svim slučajevima korisiti parametarske testove koji imaju određene pretpostavke. Nadalje, budući da testiramo jednakost većeg broja populacije, ne možemo iterativno uspoređivati sve kombinacije i to testirati jer to dovodi do povećanja greške.
+
+```{r testovi_jednakosti}
+kruskal.test(GDP_GROWTH ~ LOCATION, data = sap.data)
+```
+Dakle, budući da je p-vrijednost manja od razine značajnosti od 5%, odabcujemo nultu hipotezu koja je tvrdila kako su srednje vrijednosti svih populacija jednake te prihvaćamo alternativnu hipotezu H1 koja kaže da su barem dvije srednje vrijednosti različite.
+
+**T testovi**
+
+Nadalje, ispitali smo i odnos rasta BDP-a imeđu država. Testiranje nećemo provesti za sve slučajeve, nego ćemo odabrati određene slučajeve, odnosno kombinacije države za ispitivanje. Promatrajući vizualizirane podatke na početku rada, možemo odabrati Koreju, Norvešku i SAD za testiranje. Budući da smo u prethodnim odijeljcima pokazali kako rast BDP-a ih država ima normalnu distribuciju, možemo koristiti t-test koji koristi t-statistiku: $$T = \frac{Z \sqrt{n_1 + n_2 - 2}}{W} = \frac{\bar{X}_1 - \bar{X}_2 - (\mu_1 - \mu_2)}{S_X \sqrt{1/n_1 + 1/n_2}}$$
+Nulta hipoteza u t-testu jest da je rast BDP-a države A manji ili jednak od rasta BDP-a države B, dok je alternativna H1 hipoteza da je rast BDP-a države A veći od rasta BDP-a države B. Ukoliko je p-vrijednost manja od razine značajnosti od 5%, nulta hipoteza se odbacuje i prihvaća se alternativna hipoteza.
+
+```{r testovi_nejednakosti}
+t.test(kor_test_data$GDP_GROWTH, nor_test_data$GDP_GROWTH, alternative = 'greater', var.equal = T)
+t.test(kor_test_data$GDP_GROWTH, usa_test_data$GDP_GROWTH, alternative = 'greater', var.equal = F)
+t.test(nor_test_data$GDP_GROWTH, usa_test_data$GDP_GROWTH, alternative = 'greater', var.equal = F)
+```
+
+Ispitali smo također i povezanost između izvoza i uvoza pojedine države. Budući da su vrijednosti izvoza i uvoza promatrani kroz isto razdoblje i za istu državu, podaci su međusobno zavisni i potrebno je koristiti upareni t-test. Ostale pretpostavke t-testa (normalna distribucija i homogenost varijanci) su prethodno ispitani te su zadovoljeni.
+Nulta hipoteza kod ovog testiranja jest da je rast izvoza manji ili jednak od rasta izvoza, dok je alternativna hipoteza da je rast izvoza veći od rasta uvoza. Ukoliko je p-vrijednost testa manja od razine značajnosti od 5%, nultu hipotezu odbacujemo.
+
+```{r testovi}
+t.test(aus_test_data$EXPORT_GROWTH, aus_test_data$IMPORT_GROWTH, alternative = 'greater', paired = T, var.equal = F)
+t.test(kor_test_data$EXPORT_GROWTH, kor_test_data$IMPORT_GROWTH, alternative = 'greater', paired = T, var.equal = T)
+t.test(nor_test_data$EXPORT_GROWTH, nor_test_data$IMPORT_GROWTH, alternative = 'greater', paired = T, var.equal = T)
+t.test(usa_test_data$EXPORT_GROWTH, usa_test_data$IMPORT_GROWTH, alternative = 'greater', paired = T, var.equal = T)
+```
+
+Testiranjem smo dobili kako pri razini značajnosti of 5% ne možemo odbaciti nultu hipotezu da je rast izvoza manji ili jednak od rasta uvoza.
+
+I naposljetku, ispitujemo povezanost rasta BDP-a i BDP-a po glavi stanovnika. Budući da smo ranije pokazali kako ove populacije nemaju normalnu razdiobu, trebali bismo koristiti neparametarske testove. No, budući da koristimo uzorak veličine 39, po graničnom centralnom teoremu (CGT) možemo zanemariti nepostojanje normalne distribucije i koristiti aproksimiranje na normalnu distribuciju. Dakle, možemo provesti upareni t test budući da su podaci međusobno zavisni. Dodatno kao provjeru provodimo i njegovu neparametarsku alternativu, odnosno Wilcoxonov test.
+
+```{r}
+t.test(aus_test_data$GDP_GROWTH, aus_test_data$GDP_PER_CAPITA_GROWTH, var.equal = F, paired = T)
+wilcox.test(aus_test_data$GDP_GROWTH, aus_test_data$GDP_PER_CAPITA_GROWTH, paired=T)
+```
+
+```{r}
+t.test(kor_test_data$GDP_GROWTH, kor_test_data$GDP_PER_CAPITA_GROWTH, paired = T)
+```
+
+```{r}
+t.test(nor_test_data$GDP_GROWTH, nor_test_data$GDP_PER_CAPITA_GROWTH, paired = T)
+```
+
+```{r}
+t.test(usa_test_data$GDP_GROWTH, usa_test_data$GDP_PER_CAPITA_GROWTH, paired = T, var.equal = F)
+wilcox.test(usa_test_data$GDP_GROWTH, usa_test_data$GDP_PER_CAPITA_GROWTH, paired = T)
+```
+
+Zaključujemo kako u pravilu ne vrijedi da su rast BDP-a i rast BDP-a po glavi stanovništva značajno isti.
+
+*Linearna regresija*
+----
+Iako smo spomenuli kako se BDP izračunava po formuli u kojoj ovisi o 4 različite varijable, testirali smo različite modele koji su modelirali vezu između uvoza i izvoza te BDP-a.
+
+Isti modeli nisu davali dobru aproksimaciju za sve države. Za svaku državu odabrali jedan ili dva modela za koje smo dobili dobre rezultate. Te iste modele smo i prikazali grafički (crne točkice - stvarna vrijednost, plava linija - fittana vrijednost). Dodatno smo još testirali i normalnost reziduala putem QQ grafa i Kolmogorov-Smirnovljev testa. Sama funkcija modela linearne regresije već ima implementirane podatke o vrijednosti F statistike koja nam govori o signifikantnosti modela, ali i o vrijednosti koeficijenta determinancije.
+Nulta hipoteza Kolmogorov-Smirnovljeva testa govori kako je distribucija uzorka normalna distribucija. S druge strane, alternativna H1 hipoteza govori kako distribucija uzorka nije normalna. Uz nivo značajnosti od 5%, nultu hipotezu odbacujemo ukoliko je p-vrijednost testa manja od 5%.
+
+**Australija**
+
+```{r}
+lm.data <- sap.data %>% filter(LOCATION=="AUS") 
+
+lm1 <- lm(GDP ~ EXPORT + IMPORT, lm.data)
+summary(lm1)
+
+lm2 <- lm(GDP ~ EXPORT + IMPORT + I(EXPORT^2), lm.data)
+summary(lm2)
+
+ggplot(data = aus_test_data) + geom_point(aes(x = EXPORT + IMPORT, y = GDP)) + geom_line(aes(x = EXPORT + IMPORT, y = lm1$fitted.values), colour = 'blue')+ labs(x = "Uvoz + izvoz", y = "BDP", title = "Australija - prvi model") + theme_minimal()
+
+ggplot(data = aus_test_data) + geom_point(aes(x = EXPORT + IMPORT, y = GDP)) + geom_line(aes(x = EXPORT + IMPORT, y = lm2$fitted.values), colour = 'blue')+ labs(x = "Uvoz + izvoz", y = "BDP", title = "Australija - drugi model") + theme_minimal()
+
+```
+
+Provjerit ćemo i normalnost reziduala preko QQ plotta i Kolmogorov-Smirnovljeva testa.
+
+```{r}
+ggqqplot(lm1$residuals, main = 'QQ plot reziduala  prvog modela')
+ggqqplot(lm2$residuals, main = 'QQ plot reziduala  drugog modela')
+
+ks.test(rstandard(lm1), 'pnorm')
+ks.test(rstandard(lm2), 'pnorm')
+
+```
+
+**Južna Koreja**
+
+```{r}
+lm.data <- sap.data %>% filter(LOCATION=="KOR") 
+
+lm1 <- lm(GDP ~ EXPORT + IMPORT + I(EXPORT^2), lm.data)
+summary(lm1)
+
+lm2 <- lm(GDP ~ IMPORT + I(IMPORT^2), lm.data)
+summary(lm2)
+
+ggplot(data = kor_test_data) + geom_point(aes(x = EXPORT + IMPORT, y = GDP)) + geom_line(aes(x = EXPORT + IMPORT, y = lm1$fitted.values), colour = 'blue')+ labs(x = "Uvoz + izvoz", y = "BDP", title = "Južna Koreja - prvi model") + theme_minimal()
+
+ggplot(data = kor_test_data) + geom_point(aes(x = IMPORT, y = GDP)) + geom_line(aes(x = IMPORT, y = lm2$fitted.values), colour = 'blue')+ labs(x = "Uvoz", y = "BDP", title = "Južna Koreja - drugi model") + theme_minimal()
+
+```
+
+Provjera normalnosti reziduala za izvedene modele.
+
+```{r}
+
+ggqqplot(lm1$residuals, main = 'QQ plot reziduala  prvog modela')
+ggqqplot(lm2$residuals, main = 'QQ plot reziduala  drugog modela')
+
+ks.test(rstandard(lm1), 'pnorm')
+ks.test(rstandard(lm2), 'pnorm')
+
+```
+
+**Norveška**
+
+```{r}
+lm.data <- sap.data %>% filter(LOCATION=="NOR") 
+
+lm1 <- lm(log(GDP) ~ log(EXPORT) + log(IMPORT), lm.data)
+summary(lm1)
+
+
+ggplot(data = nor_test_data) + geom_point(aes(x = log(EXPORT) + log(IMPORT), y = log(GDP))) + geom_line(aes(x = log(EXPORT) + log(IMPORT), y = lm1$fitted.values), colour = 'blue')+ labs(x = "log(Izvoz) + log(Uvoz)", y = "log(BDP)", title = "Norveška") + theme_minimal()
+
+```
+
+Provjera normalnosti reziduala za izvedene modele.
+
+```{r}
+ggqqplot(lm1$residuals, main = 'QQ plot reziduala modela za Norvešku')
+
+ks.test(rstandard(lm1), 'pnorm')
+```
+
+**Sjedinjene Američke Države**
+
+```{r}
+lm.data <- sap.data %>% filter(LOCATION=="USA") 
+
+lm1 <- lm(GDP ~ EXPORT + IMPORT + I(IMPORT^2), lm.data)
+summary(lm1)
+
+ggplot(data = usa_test_data) + geom_point(aes(x = EXPORT + IMPORT, y = GDP)) + geom_line(aes(x = EXPORT + IMPORT, y = lm1$fitted.values), colour = 'blue')+ labs(x = "Uvoz + izvoz", y = "BDP", title = "SAD") + theme_minimal()
+```
+
+Provjera normalnosti reziduala za izvedene modele.
+
+```{r}
+ggqqplot(lm1$residuals, main = 'QQ plot reziduala modela za SAD')
+
+ks.test(rstandard(lm1), 'pnorm')
+```
+
+
+*Zaključak*
+-----
+Gospodarstvo pojedine države određeno je iznosom uvoza i izvoza. Bruto domaći proizvod je pokazatelj jačine gospodarstva neke države, no nema smisla upoređivati apsolutne vrijedi cjelokupnog BDP-a jer možemo dobiti krivu sliku o jačini gospodarstva. BDP se zato najčešće prikazuje po glavi stavnovnika. 
+Nadalje, pokazali smo kako se skoro za sve ispitane države BDP može aproksimirati linearnom regresijom pri čemu su regresori vrijednosti uvoza i izvoza te države. 
+Konačno, pokazali smo kako s razinom značajnosti od 5% ne možemo pokazati jednakost rasta BDP-a i BDP-a per capita za sve ispitane države, kao i jednakost rasta izvoza i uvoza ispitanih država.
+
+U izradi ovog rada uvelike nam je pomogao ovaj motivirajući video: https://www.youtube.com/watch?v=BvWefB4NGGI

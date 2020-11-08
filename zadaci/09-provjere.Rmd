@@ -1,0 +1,257 @@
+---
+title: "09-provjere"
+author: "Jelena Bratulić"
+date: '08 05 2020 '
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(ggpubr)
+```
+Provjere početnih pretpostavki za testove.
+Ispitujemo 3 pretpostavke za t-testove:
+  + X ~ N(mean(X), s^2/n) -- preko density plota, qq plota i Shapiro testa (može se i preko Kolmogorov-Smirnov testa)
+  + s^2 ~ chi^2(n-1), odnosno homogenost varijanci -- preko qq plota i F testa
+  + nezavisni su -- zavisni ako se radi test po varijablama iste države
+Provjera normalne distribucije provedena je preko density i qq plota, a statistički je dokazana preko Shapiro testa. Shapiro test je navodno jači od KS testa pa je on korišten.
+Ispada da sve varijable nemaju normalnu razdiobu pa je potrebno koristiti parametarski test, a ne t-test.
+```{r podaci}
+aus_test_data = sap.data %>% filter(LOCATION=="AUS")
+kor_test_data = sap.data %>% filter(LOCATION=="KOR")
+nor_test_data = sap.data %>% filter(LOCATION=="NOR")
+usa_test_data = sap.data %>% filter(LOCATION=="USA")
+
+e = rep("E", 39)
+i = rep("I", 39)
+f = rep("F", 39)
+s = rep("S", 39)
+
+aus_ei_test = data.frame(na.omit(aus_test_data$EXPORT_GROWTH), e)
+ii = data.frame(na.omit(aus_test_data$IMPORT_GROWTH), i)
+names(ii) = names(aus_ei_test)
+aus_ei_test = rbind(aus_ei_test, ii)
+
+kor_ei_test = data.frame(na.omit(kor_test_data$EXPORT_GROWTH), e)
+ii = data.frame(na.omit(kor_test_data$IMPORT_GROWTH), i)
+names(ii) = names(kor_ei_test)
+kor_ei_test = rbind(kor_ei_test, ii)
+
+nor_ei_test = data.frame(na.omit(nor_test_data$EXPORT_GROWTH), e)
+ii = data.frame(na.omit(nor_test_data$IMPORT_GROWTH), i)
+names(ii) = names(nor_ei_test)
+nor_ei_test = rbind(nor_ei_test, ii)
+
+usa_ei_test = data.frame(na.omit(usa_test_data$EXPORT_GROWTH), e)
+ii = data.frame(na.omit(usa_test_data$IMPORT_GROWTH), i)
+names(ii) = names(usa_ei_test)
+usa_ei_test = rbind(usa_ei_test, ii)
+
+
+kor_nor_test = data.frame(na.omit(kor_test_data$GDP_GROWTH), f)
+ii = data.frame(na.omit(nor_test_data$GDP_GROWTH), s)
+names(ii) = names(kor_nor_test)
+kor_nor_test = rbind(kor_nor_test, ii)
+
+kor_usa_test = data.frame(na.omit(kor_test_data$GDP_GROWTH), f)
+ii = data.frame(na.omit(usa_test_data$GDP_GROWTH), s)
+names(ii) = names(kor_usa_test)
+kor_usa_test = rbind(kor_usa_test, ii)
+
+nor_usa_test = data.frame(na.omit(nor_test_data$GDP_GROWTH), f)
+ii = data.frame(na.omit(usa_test_data$GDP_GROWTH), s)
+names(ii) = names(nor_usa_test)
+nor_usa_test = rbind(nor_usa_test, ii)
+
+gdp_g_all_states = data.frame(na.omit(aus_test_data$GDP_GROWTH), e)
+ii = data.frame(na.omit(kor_test_data$GDP_GROWTH), i)
+names(ii) = names(gdp_g_all_states)
+gdp_g_all_states = rbind(gdp_g_all_states, ii)
+ii = data.frame(na.omit(nor_test_data$GDP_GROWTH), f)
+names(ii) = names(gdp_g_all_states)
+gdp_g_all_states = rbind(gdp_g_all_states, ii)
+ii = data.frame(na.omit(usa_test_data$GDP_GROWTH), s)
+names(ii) = names(gdp_g_all_states)
+gdp_g_all_states = rbind(gdp_g_all_states, ii)
+
+
+colnames(aus_ei_test) = c("NUMBERS", "MARKER")
+colnames(kor_ei_test) = c("NUMBERS", "MARKER")
+colnames(nor_ei_test) = c("NUMBERS", "MARKER")
+colnames(usa_ei_test) = c("NUMBERS", "MARKER")
+colnames(kor_nor_test) = c("NUMBERS", "MARKER")
+colnames(kor_usa_test) = c("NUMBERS", "MARKER")
+colnames(nor_usa_test) = c("NUMBERS", "MARKER")
+colnames(gdp_g_all_states) = c("NUMBERS", "MARKER")
+```
+
+```{r density Australia} 
+ggdensity(aus_test_data$GDP_GROWTH, main = "Density graph for Australia", xlab = "GDP_GROWTH")
+ggdensity(aus_test_data$GDP_PER_CAPITA_GROWTH, main = "Density graph for Australia", xlab = "GDP_PER_CAPITA_GROWTH")
+ggdensity(aus_test_data$EXPORT_GROWTH, main = "Density graph for Australia", xlab = "EXPORT_GROWTH")
+ggdensity(aus_test_data$IMPORT_GROWTH, main = "Density graph for Australia", xlab = "IMPORT_GROWTH")
+```
+
+```{r ggqqplot Australia}
+ggqqplot(aus_test_data$GDP_GROWTH, main = "QQ plot for Australia's GDP_GROWTH")
+ggqqplot(aus_test_data$GDP_PER_CAPITA_GROWTH, main = "QQ plot for Australia's GDP_PER_CAPITA_GROWTH")
+ggqqplot(aus_test_data$EXPORT_GROWTH, main = "QQ plot for Australia's EXPORT_GROWTH")
+ggqqplot(aus_test_data$IMPORT_GROWTH, main = "QQ plot for Australia's IMPORT_GROWTH")
+
+```
+
+```{r density Korea} 
+ggdensity(kor_test_data$GDP_GROWTH, main = "Density graph for Korea", xlab = "GDP_GROWTH")
+ggdensity(kor_test_data$GDP_PER_CAPITA_GROWTH, main = "Density graph for Korea", xlab = "GDP_PER_CAPITA_GROWTH")
+ggdensity(kor_test_data$EXPORT_GROWTH, main = "Density graph for Korea", xlab = "EXPORT_GROWTH")
+ggdensity(kor_test_data$IMPORT_GROWTH, main = "Density graph for Korea", xlab = "IMPORT_GROWTH")
+```
+
+```{r ggqqplot Korea}
+ggqqplot(kor_test_data$GDP_GROWTH, main = "QQ plot for Korea's GDP_GROWTH")
+ggqqplot(kor_test_data$GDP_PER_CAPITA_GROWTH, main = "QQ plot for Korea's GDP_PER_CAPITA_GROWTH")
+ggqqplot(kor_test_data$EXPORT_GROWTH, main = "QQ plot for Korea's EXPORT_GROWTH")
+ggqqplot(kor_test_data$IMPORT_GROWTH, main = "QQ plot for Korea's IMPORT_GROWTH")
+
+```
+
+```{r density Norway} 
+ggdensity(nor_test_data$GDP_GROWTH, main = "Density graph for Norway", xlab = "GDP_GROWTH")
+ggdensity(nor_test_data$GDP_PER_CAPITA_GROWTH, main = "Density graph for Norway", xlab = "GDP_PER_CAPITA_GROWTH")
+ggdensity(nor_test_data$EXPORT_GROWTH, main = "Density graph for Norway", xlab = "EXPORT_GROWTH")
+ggdensity(nor_test_data$IMPORT_GROWTH, main = "Density graph for Norway", xlab = "IMPORT_GROWTH")
+```
+
+```{r ggqqplot Norway}
+ggqqplot(nor_test_data$GDP_GROWTH, main = "QQ plot for Norway's GDP_GROWTH")
+ggqqplot(nor_test_data$GDP_PER_CAPITA_GROWTH, main = "QQ plot for Norway's GDP_PER_CAPITA_GROWTH")
+ggqqplot(nor_test_data$EXPORT_GROWTH, main = "QQ plot for Norway's EXPORT_GROWTH")
+ggqqplot(nor_test_data$IMPORT_GROWTH, main = "QQ plot for Norway's IMPORT_GROWTH")
+
+```
+
+```{r density USA} 
+ggdensity(usa_test_data$GDP_GROWTH, main = "Density graph for USA", xlab = "GDP_GROWTH")
+ggdensity(usa_test_data$GDP_PER_CAPITA_GROWTH, main = "Density graph for USA", xlab = "GDP_PER_CAPITA_GROWTH")
+ggdensity(usa_test_data$EXPORT_GROWTH, main = "Density graph for USA", xlab = "EXPORT_GROWTH")
+ggdensity(usa_test_data$IMPORT_GROWTH, main = "Density graph for USA", xlab = "IMPORT_GROWTH")
+```
+
+```{r ggqqplot USA}
+ggqqplot(usa_test_data$GDP_GROWTH, main = "QQ plot for USA's GDP_GROWTH")
+ggqqplot(usa_test_data$GDP_PER_CAPITA_GROWTH, main = "QQ plot for USA's GDP_PER_CAPITA_GROWTH")
+ggqqplot(usa_test_data$EXPORT_GROWTH, main = "QQ plot for USA's EXPORT_GROWTH")
+ggqqplot(usa_test_data$IMPORT_GROWTH, main = "QQ plot for USA's IMPORT_GROWTH")
+```
+
+Normalna distribucija se može ispitati Shapiro testom. Neka varijabla ima normalnu distribuciju ukoliko p-vrijednost Shapiro testa bude veća od 0.05, odnosno ukoliko se nulta hipoteza ne može odbaciti.
+H0 = postoji normalna distribucija
+H1 = ne postoji normalna distribucija
+```{r Shapiro tests for Australia}
+shapiro.test(aus_test_data$GDP_GROWTH)
+shapiro.test(aus_test_data$GDP_PER_CAPITA_GROWTH)
+shapiro.test(aus_test_data$EXPORT_GROWTH) # --> normalna
+shapiro.test(aus_test_data$IMPORT_GROWTH) # --> normalna
+
+```
+
+```{r Shapiro tests for Australia2}
+shapiro.test(aus_test_data$GDP)
+shapiro.test(aus_test_data$GDP_PER_CAPITA)
+shapiro.test(aus_test_data$EXPORT) 
+shapiro.test(aus_test_data$IMPORT)
+
+```
+
+```{r Shapiro tests for Korea}
+shapiro.test(kor_test_data$GDP_GROWTH) # --> normalna
+shapiro.test(kor_test_data$GDP_PER_CAPITA_GROWTH) # --> normalna
+shapiro.test(kor_test_data$EXPORT_GROWTH) # --> normalna
+shapiro.test(kor_test_data$IMPORT_GROWTH) # --> normalna
+
+```
+
+```{r Shapiro tests for Korea2}
+shapiro.test(kor_test_data$GDP) 
+shapiro.test(kor_test_data$GDP_PER_CAPITA) 
+shapiro.test(kor_test_data$EXPORT) 
+shapiro.test(kor_test_data$IMPORT)
+
+```
+
+```{r Shapiro tests for Norway}
+shapiro.test(nor_test_data$GDP_GROWTH) # --> normalna
+shapiro.test(nor_test_data$GDP_PER_CAPITA_GROWTH) # --> normalna
+shapiro.test(nor_test_data$EXPORT_GROWTH) # --> normalna
+shapiro.test(nor_test_data$IMPORT_GROWTH) # --> normalna
+
+```
+
+
+```{r Shapiro tests for Norway2}
+shapiro.test(nor_test_data$GDP) 
+shapiro.test(nor_test_data$GDP_PER_CAPITA) 
+shapiro.test(nor_test_data$EXPORT) 
+shapiro.test(nor_test_data$IMPORT) 
+
+```
+
+```{r Shapiro tests for USA}
+shapiro.test(usa_test_data$GDP_GROWTH) # --> normalna
+shapiro.test(usa_test_data$GDP_PER_CAPITA_GROWTH)
+shapiro.test(usa_test_data$EXPORT_GROWTH) # --> normalna
+shapiro.test(usa_test_data$IMPORT_GROWTH) # --> normalna
+```
+
+```{r Shapiro tests for USA2}
+shapiro.test(usa_test_data$GDP) 
+shapiro.test(usa_test_data$GDP_PER_CAPITA) # --> normalna
+shapiro.test(usa_test_data$EXPORT) 
+shapiro.test(usa_test_data$IMPORT) 
+```
+
+Provjera varijanci izvršava se pomoću 4 testa: F test, Bartlett test, Levene test i Fligner-Kileen test
+Usporedba 2 varijance je moguća preko F testa, a usporedba više varijanci preko nekog od navedenih testova.
+Za F test je nužno da podaci imaju normalnu distribuciju.
+Za navedene testove potrebno je transformirati podatke na način da su sve brojčane vrijednosti napisane u jednom stupcu,a ono čemu pripadaju je u drugom stupcu.
+```{r F testovi}
+# usporedba varijanci rasta uvoza i izvoza za jednu državu, ako je p-vrijednost manja od 0.05 onda nisu iste
+var.test(NUMBERS ~ MARKER, data=aus_ei_test, paired=F) # nisu iste
+var.test(NUMBERS ~ MARKER, data=aus_ei_test, paired=T) # nisu iste
+var.test(NUMBERS ~ MARKER, data=kor_ei_test, paired=T) # iste su
+var.test(NUMBERS ~ MARKER, data=nor_ei_test) # iste su
+var.test(NUMBERS ~ MARKER, data=usa_ei_test) # iste su
+
+#usporedba varijanci rasta bdpa za dvije države, ako je p-vrijednost manja od 0.05 onda nisu iste
+var.test(NUMBERS ~ MARKER, data=kor_nor_test) # iste su
+var.test(NUMBERS ~ MARKER, data=kor_usa_test) # nisu iste
+var.test(NUMBERS ~ MARKER, data=nor_usa_test) # nisu iste
+```
+
+```{r Bartlett testovi}
+# Bartlettov test kojim uspoređujemo varijance rasta bdpa za sve države
+bartlett.test(NUMBERS ~ MARKER, data=gdp_g_all_states) # p-vrijednost manja od 0.05, dakle odbacujemo H0, dakle sve varijance nisu iste
+
+# usporedba za regresiju, gdp, export, import za svaku državu
+```
+
+```{r test}
+e = rep("E", 40)
+i = rep("I", 40)
+f = rep("F", 40)
+s = rep("S", 40)
+# treba ovo jos napraviti za sve modele za regresiju, problem je da su razlicite varijance svi duh doy
+
+lm1_aus_states = data.frame(na.omit(aus_test_data$GDP), e)
+ii = data.frame(na.omit(aus_test_data$EXPORT), i)
+names(ii) = names(lm1_aus_states)
+lm1_aus_states = rbind(lm1_aus_states, ii)
+ii = data.frame(na.omit(aus_test_data$IMPORT), f)
+names(ii) = names(lm1_aus_states)
+lm1_aus_states = rbind(lm1_aus_states, ii)
+colnames(lm1_aus_states) = c("NUMBERS", "MARKER")
+bartlett.test(NUMBERS ~ MARKER, data=lm1_aus_states)
+
+```

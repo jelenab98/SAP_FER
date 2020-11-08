@@ -1,0 +1,165 @@
+---
+title: "03-zadatak5"
+author: "Vjeran Grozdanic"
+date: "5/5/2020"
+output: html_document
+---
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+```
+# Transformirane varijable
+TODO: Provjera početnih uvjeta za normalizaciju varijabli, interakcijski članovi, odabir modela
+
+# AUSTRALIJA 
+```{r}
+lm.data <- sap.data %>% filter(LOCATION=="AUS") 
+
+lm1 <- lm(GDP ~ EXPORT + IMPORT, lm.data) # ovaj kao najbolji
+summary(lm1)
+# Multiple R-squared:  0.9961,	Adjusted R-squared:  0.9959 
+
+lm2 <- lm(log(GDP) ~ log(EXPORT) + log(IMPORT), lm.data)
+summary(lm2)
+# Multiple R-squared:  0.9936,	Adjusted R-squared:  0.993 
+
+lm3 <- lm(GDP ~ EXPORT, lm.data)
+summary(lm3)
+# Multiple R-squared:  0.976,	Adjusted R-squared:  0.9754 
+
+lm4 <- lm(GDP ~ IMPORT, lm.data)
+summary(lm4)
+# Multiple R-squared:  0.9826,	Adjusted R-squared:  0.9821 
+
+lm5 <- lm(log(GDP) ~ log(IMPORT), lm.data)
+summary(lm5)
+# Multiple R-squared:  0.9863,	Adjusted R-squared:  0.9859
+
+lm.data$NET_EXPORT <- lm.data$EXPORT - lm.data$IMPORT
+lm6 <- lm(GDP ~ NET_EXPORT, lm.data)   #ovaj
+summary(lm6)
+# Multiple R-squared:  0.5741,	Adjusted R-squared:  0.5629 
+
+
+lm7 <- lm(GDP ~ EXPORT_GROWTH + IMPORT_GROWTH, lm.data)
+summary(lm7)
+# Multiple R-squared:  0.04966,	Adjusted R-squared:  -0.003136 
+
+
+```
+
+
+# SAD 
+```{r}
+lm.data <- sap.data %>% filter(LOCATION=="USA") 
+
+lm1 <- lm(GDP ~ EXPORT + IMPORT, lm.data) #OVAJ
+summary(lm1)
+# Multiple R-squared:  0.9937,	Adjusted R-squared:  0.9934 
+
+lm2 <- lm(log(GDP) ~ log(EXPORT) + log(IMPORT), lm.data)
+summary(lm2)
+# Multiple R-squared:  0.9893,	Adjusted R-squared:  0.9887
+
+lm3 <- lm(GDP ~ EXPORT, lm.data)   #
+summary(lm3)
+# Multiple R-squared:  0.9874,	Adjusted R-squared:  0.987 
+
+lm4 <- lm(GDP ~ IMPORT, lm.data)
+summary(lm4)
+# Multiple R-squared:  0.9852,	Adjusted R-squared:  0.9848
+
+lm5 <- lm(log(GDP) ~ log(IMPORT), lm.data)
+summary(lm5)
+# Multiple R-squared:  0.9847,	Adjusted R-squared:  0.9843
+
+lm.data$NET_EXPORT <- lm.data$EXPORT - lm.data$IMPORT
+lm6 <- lm(GDP ~ NET_EXPORT, lm.data)
+summary(lm6)
+# Multiple R-squared:  0.6807,	Adjusted R-squared:  0.6722
+
+
+lm7 <- lm(GDP ~ EXPORT_GROWTH + IMPORT_GROWTH, lm.data)
+summary(lm7)
+# Multiple R-squared:  0.04623,	Adjusted R-squared:  -0.006755 
+
+
+```
+
+# NORVEŚKA
+```{r}
+lm.data <- sap.data %>% filter(LOCATION=="NOR") 
+
+lm1 <- lm(GDP ~ EXPORT + IMPORT + I(EXPORT*IMPORT), lm.data)
+summary(lm1)
+# Multiple R-squared:  0.9833,	Adjusted R-squared:  0.9823 
+
+lm2 <- lm(log(GDP) ~ log(EXPORT) + log(IMPORT), lm.data) #ovaj
+summary(lm2)
+# Multiple R-squared:  0.9864,	Adjusted R-squared:  0.9857 
+
+lm3 <- lm(GDP ~ EXPORT, lm.data)
+summary(lm3)
+# Multiple R-squared:  0.7458,	Adjusted R-squared:  0.7391 
+
+lm4 <- lm(GDP ~ IMPORT, lm.data)
+summary(lm4)
+# Multiple R-squared:  0.9832,	Adjusted R-squared:  0.9828 
+
+lm5 <- lm(log(GDP) ~ log(IMPORT), lm.data)
+summary(lm5)
+# Multiple R-squared:  0.9762,	Adjusted R-squared:  0.9756 
+
+lm.data$NET_EXPORT <- lm.data$EXPORT - lm.data$IMPORT
+lm6 <- lm(GDP ~ NET_EXPORT, lm.data)
+summary(lm6)
+# Multiple R-squared:  0.0006499,	Adjusted R-squared:  -0.02565 
+
+
+lm7 <- lm(GDP ~ EXPORT_GROWTH + IMPORT_GROWTH, lm.data)
+summary(lm7)
+# Multiple R-squared:  0.3455,	Adjusted R-squared:  0.3091 
+
+
+
+```
+
+
+# KOREJA (JUŽNA, NE SJEVERNA)
+```{r}
+lm.data <- sap.data %>% filter(LOCATION=="KOR") 
+
+lm1 <- lm(GDP ~ EXPORT + IMPORT, lm.data) #ovaj
+summary(lm1)
+# Multiple R-squared:  0.9879,	Adjusted R-squared:  0.9872 
+
+lm2 <- lm(log(GDP) ~ log(EXPORT) + log(IMPORT), lm.data)
+summary(lm2)
+# Multiple R-squared:  0.9826,	Adjusted R-squared:  0.9816 
+
+lm3 <- lm(GDP ~ EXPORT, lm.data)
+summary(lm3)
+# Multiple R-squared:  0.9659,	Adjusted R-squared:  0.965 
+
+lm4 <- lm(GDP ~ IMPORT, lm.data)
+summary(lm4)
+# Multiple R-squared:  0.986,	Adjusted R-squared:  0.9857 
+
+lm5 <- lm(log(GDP) ~ log(IMPORT), lm.data)
+summary(lm5)
+# Multiple R-squared:  0.9816,	Adjusted R-squared:  0.9812
+
+lm.data$NET_EXPORT <- lm.data$EXPORT - lm.data$IMPORT #ovaj
+lm6 <- lm(GDP ~ NET_EXPORT, lm.data)
+summary(lm6)
+# Multiple R-squared:  0.6669,	Adjusted R-squared:  0.6581 
+
+
+lm7 <- lm(GDP ~ EXPORT_GROWTH + IMPORT_GROWTH, lm.data)
+summary(lm7)
+# Multiple R-squared:  0.1432,	Adjusted R-squared:  0.0956 
+
+
+```

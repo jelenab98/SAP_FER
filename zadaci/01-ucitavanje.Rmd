@@ -1,0 +1,24 @@
+---
+title: "01-ucitavanje"
+author: "Vjeran Grozdanic"
+date: "4/14/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+# Ucitavanje podataka
+
+## Import datasetova
+```{r}
+rm(list=ls()) # cisti sve lokalne varijable
+
+export.data <- read_csv("../data/Export_data.csv")
+import.data <- read_csv("../data/Import_data.csv")
+gdp.data <- read_csv("../data/GDP_data.csv")
+gdp.per.capita.data <- read_csv("../data/GDPpercapita_data.csv")
+```
+
